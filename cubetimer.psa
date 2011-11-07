@@ -1,0 +1,11 @@
+[Project]
+category = Game
+maintainer = Gabriel Böhme
+appname = CubeTimerQML
+section = games
+pyversion = 2.7
+project = cubetimer
+email = m.gabrielboehme@googlemail.com
+desc = CubeTimerQML
+template = harmattan
+

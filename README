@@ -1,0 +1,5 @@
+CubeTimerQML
+
+It is an application for Nokia N9/N950 able to stop and store your Rubiks Cube solving times. It also features a stopwatch mode and a selectable inspection time. It is realized with PySide and QML.
+
+Mail: m.gabrielboehme@googlemail.com

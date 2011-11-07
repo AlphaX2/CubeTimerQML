@@ -1,0 +1,428 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+
+import os
+import sys
+import random
+import pickle
+import subprocess
+from functools import partial
+from PySide import QtCore
+from PySide.QtCore import Qt
+from PySide import QtGui
+from PySide import QtDeclarative
+
+#OpenGL Rendering
+from PySide import QtOpenGL
+
+class cubetimer():
+	def __init__(self):
+
+		#Oberfläche und Instanzierungen für QML2Py Funktionen
+		self.view = QtDeclarative.QDeclarativeView()
+
+		#OpenGL Rendering
+		self.glw = QtOpenGL.QGLWidget()
+        	self.view.setViewport(self.glw)
+
+		self.view.setSource(QtCore.QUrl('/usr/share/cubetimer/qml/main.qml'))
+		self.root = self.view.rootObject()
+
+		# instantiate the Python object
+		self.pyfunc = pyfunc()
+
+    		# expose the object to QML
+		self.context = self.view.rootContext()
+		self.context.setContextProperty("pyfunc", self.pyfunc)
+
+		#self.view.setAttribute(Qt.WA_Maemo5PortraitOrientation, True)
+
+		#Buttons der UI
+		#Refresh-Button der Toolbar -> neues Spiel, neue Anweisung, Timer auf 0 usw.
+		self.scramblebutton = self.root.findChild(QtCore.QObject,"refreshbutton")
+		self.scramblebutton.clicked.connect(self.reset)
+
+		#Uhr starten/stopen - mit "released" - ähnlich wie käufliche Stopuhren
+		self.timerbutton = self.root.findChild(QtCore.QObject,"timer_start")
+		self.timerbutton.released.connect(self.timer_start)
+
+		#Settingsmenü-Button -> umschalten zwischen Stopuhr und normalen CubeTimer Modus
+		self.stopwatchbutton = self.root.findChild(QtCore.QObject,"stopwatchSwitch")
+		self.stopwatchbutton.clicked.connect(self.stopwatchmode)
+
+		#Inspection Time einschalten/ausschalten - nur grundlegend ja/nein
+		self.inspectionbutton = self.root.findChild(QtCore.QObject,"inspectionSwitch")
+		self.inspectionbutton.clicked.connect(self.waittime)
+
+		#TODO: Button-Row auslesen für Dauer der Inspection Time im Moment 15 sec.
+
+		#Button welcher die gespeicherten Settings und Zeiten zurücksetzt.
+		self.reset_button = self.root.findChild(QtCore.QObject, "reset_button")
+		self.reset_button.clicked.connect(self.time_reset)
+
+		#Buttons aus der Button-Row für die Inspektionszeit
+		#wait for 5 seconds
+		self.wait5sec = self.root.findChild(QtCore.QObject, "wait5")
+		self.wait5sec.clicked.connect(partial(self.set_inspection_duration,5000))
+
+		#wait for 10 seconds
+		self.wait10sec = self.root.findChild(QtCore.QObject, "wait10")
+		self.wait10sec.clicked.connect(partial(self.set_inspection_duration,10000))
+
+		#wait for 15 seconds
+		self.wait15sec = self.root.findChild(QtCore.QObject, "wait15")
+		self.wait15sec.clicked.connect(partial(self.set_inspection_duration,15000))
+
+		#wait for 20 seconds
+		self.wait20sec = self.root.findChild(QtCore.QObject, "wait20")
+		self.wait20sec.clicked.connect(partial(self.set_inspection_duration,20000))
+
+		#wait for 25 seconds
+		self.wait25sec = self.root.findChild(QtCore.QObject, "wait25")
+		self.wait25sec.clicked.connect(partial(self.set_inspection_duration,25000))
+
+		#wait for 30 seconds
+		self.wait30sec = self.root.findChild(QtCore.QObject, "wait30")
+		self.wait30sec.clicked.connect(partial(self.set_inspection_duration,30000))
+
+		#Variable ob der Timer läuft
+		self.timer_on = False
+		#Variable mit Gesamtzeit
+		self.total_time = 0
+		#Variable für Timer (hochzählen), Timer2 (runterzählen)
+		self.timer = QtCore.QTimer()
+		self.timer2 = QtCore.QTimer()
+		#Variable für Update/Unterbrecher damit UI weiter reagiert + Zeit in ms
+        	self.timer.setInterval(10)
+		self.timer2.setInterval(500)
+		#Gibt an was ausgeführt wird wenn der Interval abgelaufen ist!
+        	self.timer.timeout.connect(self.update_time)
+		self.timer2.timeout.connect(self.update_wait_time)
+		#Zeitnehmer
+        	self.zeit = QtCore.QTime()
+
+		#Stopuhr/Inspection sind an/aus - Standard is None wird dann aber True/False und auch in Settings gespeichert
+		self.inspectionmode = None
+		self.stopwatchmode = None
+
+		#Standarddauer für Inspektion vor dem Start
+		self.inspection_duration = 15000
+
+#--------------------------------------------------------------------------------------------------
+
+		#Setting von ersten Werten auf Oberfläche Zeiten, Stopwatch-Modus, Inspection-Time
+		self.settings()
+		self.scrambler()
+		#commented out for Harmattan
+		#self.backlighter() #Not very nice - cause also implementable with dbus TODO: another code is needed by Harmattan! :D
+
+#--------------------------------------------------------------------------------------------------
+	#Funktionen des Programms/Python-Logik
+	def settings(self):
+		print "Settings"
+		#Prüfen der Config-Pfade sonst anlegen der Datei!
+		if os.path.isfile('/home/user/.config/cubetimer.cfg') == True:
+			#Laden der gespeicherten Werte
+			f = open("/home/user/.config/cubetimer.cfg")
+			l = pickle.load(f)
+
+		else:
+			#erstellen einer entsprechenden cfg mit pickle
+			f = open("/home/user/.config/cubetimer.cfg", "w")
+			pickle.dump({"stopwatch": False ,"inspection": False, "record":0 ,"average":0,"last":0,"averagetimeaddion": 0, "averagedivider": 1}, f)
+			f = open("/home/user/.config/cubetimer.cfg")
+			l = pickle.load(f)
+
+		#Stopuhr-Setting lesen und bestimmen
+		self.stopwatchmode = l["stopwatch"]
+		print l["stopwatch"]
+		self.root.activateStopwatchMode(str(self.stopwatchmode))
+
+		#Inspection-Setting lesen und bestimmen
+		self.inspectionmode = l["inspection"]
+		print l["inspection"]
+		self.root.activateInspectionMode(str(self.inspectionmode))
+
+		#einlesen der Zeiten
+		rec = l["record"]
+		ave = l["average"]
+		last = l["last"]
+
+		#Zuordnung der Variablen und Umwandlung in MIN:SEC:MS Format
+		record = self.time_transformer(rec)
+		average = self.time_transformer(ave)
+		last = self.time_transformer(last)
+
+		#Schreiben der Zeitwerte
+		self.root.record_time("best: %s" % record)
+		self.root.average_time("average: %s" % average)
+		self.root.last_time("last: %s" % last)
+
+#--------------------------------------------------------------------------------------------------
+
+	#Umwandlung in MIN:SEC:MS
+	def time_transformer(self, ms):
+        	ms /= 10
+		hundredthseconds = ms % 100
+		ms /= 100
+		seconds = ms % 60
+		ms /= 60
+		minutes = ms % 60
+
+		ms = '%02d:%02d:%02d' % (minutes, seconds, hundredthseconds)
+		return ms
+
+#--------------------------------------------------------------------------------------------------
+
+	# Notationen werden zufällig gezogen und dann auf die ersten beiden Linien geschrieben - die 2 Linien kommen durch Schriftgröße/Platz.
+	# Es können auch andere Notationen, oder zusätzliche in die Liste eingetragen werden! ;)
+	def scrambler(self):
+		notationsU = ["U  ","U'  ","U2  "]
+		notationsD = ["D  ","D'  ","D2  "]
+		notationsR = ["R  ","R'  ","R2  "]
+		notationsL = ["L  ","L'  ","L2  "]
+		notationsF = ["F  ","F'  ","F2  "]
+		notationsB = ["B  ","B'  ","B2  "]
+
+		scrambled = []
+		counter = 0
+
+		#Nottionen werden immer wieder der Reihenfolge nach gezogen, sorgt für genügend "Chaos" und vermeidet Dopplungen
+		while counter < 30:
+			i = random.choice(notationsU)
+			scrambled.append(i)
+			counter += 1
+
+			i = random.choice(notationsD)
+			scrambled.append(i)
+			counter += 1
+
+			i = random.choice(notationsR)
+			scrambled.append(i)
+			counter += 1
+
+			i = random.choice(notationsL)
+			scrambled.append(i)
+			counter += 1
+
+			i = random.choice(notationsF)
+			scrambled.append(i)
+			counter += 1
+
+			i = random.choice(notationsB)
+			scrambled.append(i)
+			counter += 1
+
+		#Bestimmen der ersten 15 und zweiten 15 Notationen
+		scrambled1 = scrambled[0:14]
+		scrambled2 = scrambled[14:29]
+
+		#An QML "übergabefähigen" String erzeugen
+		scrambled1 = "%s" % "".join(scrambled1)
+		scrambled2 = "%s" % "".join(scrambled2)
+
+		#Ausgabe auf der UI
+		self.root.scrambler(scrambled1)
+		self.root.scrambler2(scrambled2)
+
+		#Nullen des Timers beim Start sowie beim drücken des Reload-Button
+		self.root.timerUpdate("00:00:00")
+
+#--------------------------------------------------------------------------------------------------
+
+	#Thanks to Boris Pohlers, for help with the stopwatch and hint to QTimer.
+	#Timer starten/stoppen - außerdem Überprüfungauf Inspections-Time TODO: Erweiterung um Variable Inspec-Time
+	def timer_start(self):
+		if self.inspectionmode == True:
+			if self.timer_on == True:
+				self.timer_start_stop()
+
+			else:
+				zeit = self.time_transformer(self.inspection_duration)
+				self.root.timerUpdate(zeit)
+
+				self.zeit.start()
+				self.timer2.start()
+		else:
+			self.timer_start_stop()
+
+#--------------------------------------------------------------------------------------------------
+
+	#Funktion um Timer tatsächlich laufen zu lassen
+	def timer_start_stop(self):
+		if self.timer_on == False:
+			self.timer_on = True
+			self.zeit.start()
+        		self.timer.start()
+			return self.timer_on
+
+		elif self.timer_on == True:
+			self.timer_on = False
+			self.total_time = self.total_time + self.zeit.elapsed()
+        		self.timer.stop()
+			self.save_times(self.total_time)
+			return self.timer_on
+
+#--------------------------------------------------------------------------------------------------
+
+	#Updaten der Zeitangabe für die QML UI inkl. Umwandlung der ms in "vernünftigen" Zeitstring
+	def update_time(self):
+		milliseconds = self.total_time + self.zeit.elapsed()
+        	milliseconds /= 10
+		hundredthseconds = milliseconds % 100
+		milliseconds /= 100
+		seconds = milliseconds % 60
+		milliseconds /= 60
+		minutes = milliseconds % 60
+
+        	self.root.timerUpdate('%02d:%02d:%02d' % (minutes, seconds, hundredthseconds))
+
+#--------------------------------------------------------------------------------------------------
+
+	def save_times(self, zeit):
+		#Die Zeiten sollen natürlich nicht gespeichert werden, wenn der User im Stopuhr Modus ist!
+		if self.stopwatchmode == False:
+			#Laden der gespeicherten Daten
+			f = open("/home/user/.config/cubetimer.cfg")
+			l = pickle.load(f)
+
+			#Einlesen der Zeiten und Berechnung! "last" ist die letzte Zeit, der Durchschnitt ergibt sich aus allen jemals gespielten Zeiten.
+			#Diese werden einfach aufaddiert in "averagetimeaddion" geteilt durch die Anzahl aller je gespielten Spiele "averagedivider".
+			l["last"] = zeit
+			l["average"] = ((l["averagetimeaddion"]+int(zeit))/l["averagedivider"])
+			l["averagetimeaddion"] = (l["averagetimeaddion"]+int(zeit*1.0))
+			l["averagedivider"] += 1
+
+			# Kontrolle ob neue Zeit auch neuer Rekord ist!
+			if l["record"] == 0:
+				l["record"] = zeit
+
+			elif zeit < l["record"]:
+				l["record"] = zeit
+
+			#Speichern der Daten
+			f = open("/home/user/.config/cubetimer.cfg", "w")
+			pickle.dump(l,f)
+
+		#Falls User im Stopuhr Modus ist passiert schlicht NICHTS, daher pass! ;)
+		else:
+			pass
+
+#--------------------------------------------------------------------------------------------------
+
+	#Reset des letzten Spiels/Zeit und nullen sowie stoppen der Uhr etc.
+	def reset(self):
+		print "RESET LÄUFT"
+		self.timer_on = False
+        	self.timer.stop()
+		self.settings()
+		self.total_time = 0
+		self.scrambler()
+
+#--------------------------------------------------------------------------------------------------
+
+	#Vollständiger Reset der Zeitdaten, dazu schreiben der cfg mit Standard/ohne Daten.
+	def time_reset(self):
+		f = open("/home/user/.config/cubetimer.cfg", "w")
+		pickle.dump({"stopwatch": False ,"inspection": False, "record":0 ,"average":0,"last":0,"averagetimeaddion": 0, "averagedivider": 1}, f)
+		self.root.record_time("best: 00:00:00")
+		self.root.average_time("average: 00:00:00")
+		self.root.last_time("last: 00:00:00")
+		#self.settings()
+
+#--------------------------------------------------------------------------------------------------
+
+	#Funktion prüft beim Start, ob zuletzt der Stopuhr Modus aktiv war, wenn ja wird die App wieder in diesen versetzt!
+	def stopwatchmode(self):
+		print "Stopuhr Modus"
+
+		if self.stopwatchmode == False:
+			self.stopwatchmode = True
+			self.root.activateStopwatchMode(str(self.stopwatchmode))
+		else:
+			self.stopwatchmode = False
+			self.root.activateStopwatchMode(str(self.stopwatchmode))
+
+		#Laden der gespeicherten Daten
+		f = open("/home/user/.config/cubetimer.cfg")
+		l = pickle.load(f)
+
+		print "Stopuhr Modus ist jetzt auf: "+str(self.stopwatchmode)
+		l["stopwatch"] = self.stopwatchmode
+
+		#Speichern der Daten
+		f = open("/home/user/.config/cubetimer.cfg", "w")
+		pickle.dump(l,f)
+
+#--------------------------------------------------------------------------------------------------
+
+	#Funktion die, die Wartezeit für die Inspection entgegen nimmt - normal sind 15 sec.
+	def set_inspection_duration(self, zeit):
+		self.inspection_duration = zeit
+
+#--------------------------------------------------------------------------------------------------
+
+	#Funktion stellt Inspections-Zeit je nach letztem gespeicherten Zustand wieder an/aus.
+	def waittime(self):
+		print "Inspections Modus"
+		if self.inspectionmode == False:
+			self.inspectionmode = True
+			self.root.activateInspectionMode(str(self.inspectionmode))
+		else:
+			self.inspectionmode = False
+			self.root.activateInspectionMode(str(self.inspectionmode))
+
+		#Laden der gespeicherten Daten
+		f = open("/home/user/.config/cubetimer.cfg")
+		l = pickle.load(f)
+
+		l["inspection"] = self.inspectionmode
+		print "Inspection steht jetzt auf: "+str(self.inspectionmode)
+
+		#Speichern der Daten
+		f = open("/home/user/.config/cubetimer.cfg", "w")
+		pickle.dump(l,f)
+
+#--------------------------------------------------------------------------------------------------
+
+	#Umgekehrte Timer-Funktion, damit die Inspection Zeit rückwärts laufen kann. TODO: Variable Inspec-Zeit!
+	def update_wait_time(self):
+		waittime = self.inspection_duration
+		milliseconds = waittime - self.zeit.elapsed()
+	        milliseconds /= 10
+		hundredthseconds = milliseconds % 100
+		milliseconds /= 100
+		seconds = milliseconds % 60
+		milliseconds /= 60
+		minutes = milliseconds % 60
+
+		if waittime-self.zeit.elapsed() <= 0:
+			print "STOP"
+			self.timer2.stop()
+			self.timer_start_stop()
+
+	        self.root.timerUpdate('%02d:%02d:%02d' % (minutes, seconds, hundredthseconds))
+
+#-------------------------------------------------------------------------------------------------
+	#Display wird dauerhaft (so lange App läuft) aktiviert per DBUS:
+	#def backlighter(self):
+		#Maemo5 DBUS Code um Hintergrund-Beleuchtung anzulassen
+	#	subprocess.Popen(['dbus-send', '--system', '--type=method_call', '--print-reply', '--dest=com.nokia.mce','/com/nokia/mce/request', 'com.nokia.mce.request.req_display_blanking_pause'])
+
+#--------------------------------------------------------------------------------------------------
+
+# Klasse für Funktionen die aus QML heraus angesprochen werden sollen:
+class pyfunc(QtCore.QObject):
+	#Beenden Funktion
+	@QtCore.Slot()
+	def ende(self):
+		exit()
+
+#--------------------------------------------------------------------------------------------------
+
+#Starten der App
+if __name__ == '__main__':
+	app = QtGui.QApplication(sys.argv)
+	start = cubetimer()
+	start.view.showFullScreen()
+    	sys.exit(app.exec_())
