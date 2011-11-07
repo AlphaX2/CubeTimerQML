@@ -6,11 +6,6 @@ Page {
     tools: commonTools
     orientationLock: PageOrientation.LockPortrait
 
-    ScreenSaver {
-        id: screenSaver
-        screenSaverInhibited: false
-    }
-
     //Property Alias' für Text-Aktualisierungen
     property alias scrambletext: scramble.text
     property alias scramble2text: scramble2.text
@@ -18,6 +13,11 @@ Page {
     property alias recordtext: record.text
     property alias averagetext: average.text
     property alias lasttext: last.text
+
+    ScreenSaver {
+        id: screenSaver
+        screenSaverInhibited: false
+    }
 
     ToolBarLayout {
         id: commonTools
@@ -41,7 +41,6 @@ Page {
         anchors.centerIn: parent
         text: "00:00:00"
         color: "#aaaaaa"
-        //font.family: "Nokia Pure Text Light"
         font.pointSize: 85
         z:1
     }
@@ -69,10 +68,7 @@ Page {
 
     Text { // Titel der App selbst
         id: title
-        anchors.left: parent.left
-        anchors.leftMargin: 10
-        anchors.top: parent.top
-        anchors.topMargin: 10
+        anchors {left: parent.left; leftMargin: 10; top: parent.top; topMargin: 10}
         text: "CubeTimer"
         style: Text.Outline
         styleColor: "#848784"
@@ -82,9 +78,7 @@ Page {
 
     Text {// Titel Zusatz QML - in blau wie Slider #298ede
         id: titel_qml
-        anchors.left: title.right
-        anchors.leftMargin: 5
-        anchors.bottom: title.bottom
+        anchors { left: title.right; leftMargin: 5; bottom: title.bottom }
         text: "QML"
         font.pointSize: 30
         color: "#298ede"
@@ -92,10 +86,7 @@ Page {
 
     Text { // "Scramble:" Text
         id: scramble_title
-        anchors.left: parent.left
-        anchors.leftMargin: 10
-        anchors.top: parent.top
-        anchors.topMargin: 130
+        anchors {left: parent.left; leftMargin: 10; top: parent.top; topMargin: 130}
         text: qsTr("Scramble:")
         color: "#aaaaaa"
         font.pointSize: 24
@@ -105,20 +96,16 @@ Page {
 
     Text { // Reihe 1 der Scramble Anweisungen
         id: scramble
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: scramble_title.bottom
-        anchors.topMargin: 5
-        text: "01  02  03  04  05  06  07  08  09  10  11  12  13  14  15"
+        anchors {horizontalCenter: parent.horizontalCenter; anchors.top: scramble_title.bottom; anchors.topMargin: 5}
+        text: " "
         font.pointSize: 14
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
     }
 
     Text { // Reihe 2 der Scramble Anweisungen
         id: scramble2
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: scramble.bottom
-        anchors.topMargin: 5
-        text: "16  17  18  19  20  21  22  23  24  25  26  27  28  29  30"
+        anchors {horizontalCenter: parent.horizontalCenter; anchors.top: scramble.bottom; anchors.topMargin: 5}
+        text: " "
         font.pointSize: 14
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
     }
@@ -126,38 +113,32 @@ Page {
     Text { // Rekord-Zeit
         id: record
         objectName: "record"
-        anchors.top: startstop.bottom
-        anchors.topMargin: 30
+        anchors {top: startstop.bottom; anchors.topMargin: 30}
         x: 20
         text: qsTr("best: 00:06:94 min.")
         color: "black"
-        font.pointSize: 18
-        font.bold: true
+        font {pointSize: 18; bold: true}
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
     }
 
     Text { // durchschnittliche Zeit
         id: average
         objectName: "average"
-        anchors.top: record.bottom
-        anchors.topMargin: 20
+        anchors {top: record.bottom; topMargin: 20}
         x: 20
         text: qsTr("average: 00:17:57 min.")
         color: "#848784"
-        font.pointSize: 18
-        font.bold: true
+        font {pointSize: 18; bold: true}
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
     }
 
     Text { // letzte Zeit
         id: last
         objectName: "last"
-        anchors.top: average.bottom
-        anchors.topMargin: 20
+        anchors {top: average.bottom; topMargin: 20}
         x: 20
         text: qsTr("last: 00:26:00 min.")
-        font.pointSize: 18
-        font.bold: true
+        font {pointSize: 18; bold: true}
         color: "darkgrey"
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
     }
