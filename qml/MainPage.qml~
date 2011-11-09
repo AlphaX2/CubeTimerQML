@@ -96,7 +96,7 @@ Page {
 
     Text { // Reihe 1 der Scramble Anweisungen
         id: scramble
-        anchors {horizontalCenter: parent.horizontalCenter; top: scramble_title.bottom; topMargin: 5}
+        anchors {horizontalCenter: parent.horizontalCenter; anchors.top: scramble_title.bottom; anchors.topMargin: 5}
         text: " "
         font.pointSize: 14
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
@@ -104,7 +104,7 @@ Page {
 
     Text { // Reihe 2 der Scramble Anweisungen
         id: scramble2
-        anchors {horizontalCenter: parent.horizontalCenter; top: scramble.bottom; topMargin: 5}
+        anchors {horizontalCenter: parent.horizontalCenter; anchors.top: scramble.bottom; anchors.topMargin: 5}
         text: " "
         font.pointSize: 14
         opacity: settingsPage.stopwatchON ? 0.0 : 1.0
@@ -113,7 +113,7 @@ Page {
     Text { // Rekord-Zeit
         id: record
         objectName: "record"
-        anchors {top: startstop.bottom; topMargin: 30}
+        anchors {top: startstop.bottom; anchors.topMargin: 30}
         x: 20
         text: qsTr("best: 00:06:94 min.")
         color: "black"

@@ -1,28 +1,7 @@
-import QtQuick 1.1
-import com.nokia.meego 1.0
 
-Page {
-    tools: commonTools
-    orientationLock: PageOrientation.LockPortrait
 
-    property alias stopwatchON: stopwatchSwitch.checked
-    property alias inspectionON: inspectionSwitch.checked
 
-    ToolBarLayout {
-        id: commonTools
-        visible: true
-        ToolIcon {
-            platformIconId: "toolbar-view-menu"
-            anchors.right: (parent === undefined) ? undefined : parent.right
-            onClicked: (myMenu.status == DialogStatus.Closed) ? myMenu.open() : myMenu.close()
-        }
-        ToolIcon {
-            platformIconId: "toolbar-back"
-            anchors.left: (parent === undefined) ? undefined : parent.left
-            onClicked: pageStack.pop()
-        }
-    }
-
+Item {
     Text { // Titel der App selbst
         id: title_settings
         anchors {left: parent.left; leftMargin: 10; top: parent.top; topMargin: 10}
