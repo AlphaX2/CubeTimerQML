@@ -12,5 +12,5 @@ setup(name="cubetimer",
       description="CubeTimerQML",
       long_description=read('cubetimer.longdesc'),
       data_files=[('share/applications',['cubetimer.desktop']),
-                  ('share/icons/hicolor/64x64/apps', ['cubetimer.png']),
+                  ('share/icons/hicolor/80x80/apps', ['cubetimer.png']),
                   ('share/cubetimer/qml', glob.glob('qml/*.qml')), ],)
